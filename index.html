@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>DeTyrant</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="styles.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "playcanvas": "https://cdn.jsdelivr.net/npm/playcanvas@2.11.1/build/playcanvas.mjs"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <canvas id="application"></canvas>
+
+    <div id="ui">
+      <div class="topbar panel">
+        <div>
+          <p class="eyebrow">DeTyrant</p>
+          <h1>Astra Combat Wing</h1>
+        </div>
+        <div class="match-meta">
+          <div>
+            <span class="label">Mode</span>
+            <strong>Bot Deathmatch</strong>
+          </div>
+          <div>
+            <span class="label">Goal</span>
+            <strong>30 Kills</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="left-column">
+        <div class="panel hud-card">
+          <span class="label">Vitals</span>
+          <div class="stat-line">
+            <strong id="health">100</strong>
+            <span>HP</span>
+          </div>
+          <div class="stat-line muted">
+            <strong id="streak">0</strong>
+            <span>Streak</span>
+          </div>
+        </div>
+
+        <div class="panel hud-card">
+          <span class="label">Weapon</span>
+          <div class="weapon-name" id="weapon-name">Rifle</div>
+          <div class="ammo-row">
+            <strong id="ammo">20</strong>
+            <span id="reserve">INF</span>
+          </div>
+          <p class="hint">1 Pistol   2 SMG   3 Rifle   R Reload</p>
+        </div>
+      </div>
+
+      <div class="right-column">
+        <div class="panel score-card">
+          <div class="score-line">
+            <span class="label">Time</span>
+            <strong id="timer">08:00</strong>
+          </div>
+          <div class="score-line">
+            <span class="label">Score</span>
+            <strong><span id="kills">0</span> / <span id="deaths">0</span></strong>
+          </div>
+        </div>
+
+        <div class="panel leaderboard">
+          <div class="leaderboard-header">
+            <span class="label">Leaderboard</span>
+            <span class="muted">Top 6</span>
+          </div>
+          <div id="leaderboard-list"></div>
+        </div>
+      </div>
+
+      <div id="kill-feed" class="kill-feed"></div>
+
+      <div id="crosshair" class="crosshair">
+        <span></span>
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+
+      <div id="damage-flash"></div>
+
+      <div id="start-screen" class="fullscreen-panel">
+        <div class="hero-card">
+          <p class="eyebrow">Lightweight Web FPS Prototype</p>
+          <h2>DeTyrant</h2>
+          <p>
+            Drop into the Astra Combat Wing, outgun synthetic rivals, and own
+            the mothership training sector.
+          </p>
+          <ul>
+            <li>Sleek high-tech station arena</li>
+            <li>Medium TTK with fast respawns</li>
+            <li>5 synthetic opponents on a compact map</li>
+          </ul>
+          <button id="start-button">Deploy</button>
+          <p class="subtle">
+            Mouse to aim, click to fire, Shift to sprint, Esc to release the
+            cursor.
+          </p>
+        </div>
+      </div>
+
+      <div id="respawn-banner" class="floating-banner hidden"></div>
+
+      <div id="match-over" class="fullscreen-panel hidden">
+        <div class="hero-card compact">
+          <p class="eyebrow">Match Complete</p>
+          <h2 id="winner-line">Simulation Ended</h2>
+          <p id="summary-line">One more run through the station?</p>
+          <button id="restart-button">Run Again</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="src/main.js"></script>
+  </body>
+</html>

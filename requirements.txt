@@ -1,0 +1,2 @@
+# No third-party Python packages are required.
+# The local server uses Python's standard library only.
