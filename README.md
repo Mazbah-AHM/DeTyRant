@@ -1,32 +1,21 @@
 # DeTyrant
 
-DeTyrant is a lightweight web FPS prototype set in a sleek combat wing inside a massive mothership.
+DeTyrant is a native desktop FPS prototype built in Godot 4.
 
-## Quick Start
+## Run
 
-1. Serve the project folder with any static server.
-2. Open `http://127.0.0.1:8000`.
-3. Click `Deploy` to lock the cursor and start the match.
+1. Install Godot 4.6.x.
+2. Open `desktop_godot/project.godot`.
+3. Press Play.
 
-If you want to use the included server:
+## Current Direction
 
-```bash
-python server.py
-```
+The project is moving toward a lightweight, professional, bot deathmatch:
 
-On Windows, you can also run `run_game.bat`.
+- Native captured mouse look and responsive first-person movement.
+- Physics-backed collision and hitscan raycasts.
+- Weapon recoil, spread bloom, jump/air control, reloads, hit markers, respawns, and kill limit.
+- Procedural sci-fi arena with emissive trim, fog, glow, glass, shadows, and stronger material treatment.
+- Synthetic bots with patrol, strafe, engagement, hit zones, and respawns.
+- Lightweight procedural audio for shots, hits, reloads, and match events.
 
-## Controls
-
-- `W A S D`: Move
-- `Shift`: Sprint
-- `Mouse`: Aim
-- `Left Click`: Fire
-- `R`: Reload
-- `1 / 2 / 3`: Switch weapon
-- `Esc`: Release cursor
-
-## Notes
-
-- The project is dependency-light and uses PlayCanvas from a CDN.
-- `requirements.txt` is included and intentionally minimal.

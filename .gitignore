@@ -1,0 +1,10 @@
+# Godot local editor/import cache
+desktop_godot/.godot/
+desktop_godot/.import/
+
+# Build outputs
+builds/
+exports/
+*.exe
+*.pck
+
