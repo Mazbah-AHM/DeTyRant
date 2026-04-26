@@ -10,7 +10,7 @@ const ACTOR_LAYER := 2
 const HITBOX_LAYER := 4
 const MATCH_SECONDS := 8.0 * 60.0
 const KILL_LIMIT := 30
-const BOT_COUNT := 6
+const BOT_COUNT := 1
 
 var rng := RandomNumberGenerator.new()
 var materials := {}
@@ -116,17 +116,23 @@ func register_player_shot(origin: Vector3, direction: Vector3, weapon: Dictionar
 	if not game_active:
 		return
 
+	var visual_origin: Vector3 = player.muzzle_position() if player and player.has_method("muzzle_position") else origin
 	if audio:
-		audio.play_3d(weapon["sound"], origin, -3.0)
+		audio.play_3d(weapon["sound"], visual_origin, -3.0)
+	_spawn_muzzle_flash(visual_origin, direction, weapon["color"])
 
 	var hit := _raycast(origin, origin + direction * weapon["range"], WORLD_LAYER | HITBOX_LAYER, [player.get_rid()])
 	var has_hit := not hit.is_empty()
 	var impact: Vector3 = origin + direction * weapon["range"]
+	var impact_normal: Vector3 = -direction
+	var impact_surface := "concrete"
 	if has_hit:
 		impact = hit["position"]
+		impact_normal = hit.get("normal", -direction)
+		impact_surface = _surface_from_hit(hit)
 
-	_spawn_tracer(origin, impact, weapon["color"], 0.052)
-	_spawn_impact(impact, weapon["color"], 0.16)
+	_spawn_tracer(visual_origin, impact, weapon["color"], 0.052)
+	_spawn_impact(impact, weapon["color"], 0.16, impact_normal, impact_surface)
 
 	if has_hit and hit["collider"] is Area3D and hit["collider"].has_meta("bot"):
 		var bot = hit["collider"].get_meta("bot")
@@ -152,15 +158,20 @@ func register_bot_shot(bot, origin: Vector3, direction: Vector3, damage: float) 
 
 	if audio:
 		audio.play_3d("bot_fire", origin, -10.0)
+	_spawn_muzzle_flash(origin, direction, Color(1.0, 0.42, 0.28))
 
 	var end := origin + direction * 72.0
 	var hit := _raycast(origin, end, WORLD_LAYER, [bot.get_rid()])
 	var has_hit := not hit.is_empty()
 	var blocked := has_hit and origin.distance_to(hit["position"]) < origin.distance_to(player.eye_position())
 	var impact: Vector3 = hit["position"] if has_hit else end
+	var impact_normal: Vector3 = hit.get("normal", -direction) if has_hit else -direction
+	var impact_surface: String = _surface_from_hit(hit) if has_hit else "flesh"
 	if not blocked:
 		var player_distance := origin.distance_to(player.eye_position())
 		impact = player.eye_position()
+		impact_normal = -direction
+		impact_surface = "flesh"
 		if player_distance < 38.0:
 			player.apply_damage(damage)
 			if not player.alive:
@@ -171,11 +182,16 @@ func register_bot_shot(bot, origin: Vector3, direction: Vector3, damage: float) 
 					player.respawn(_choose_spawn(player))
 
 	_spawn_tracer(origin, impact, Color(1.0, 0.42, 0.28), 0.035)
-	_spawn_impact(impact, Color(1.0, 0.42, 0.28), 0.10)
+	_spawn_impact(impact, Color(1.0, 0.42, 0.28), 0.10, impact_normal, impact_surface)
 
 
 func bot_respawn_position(bot) -> Vector3:
 	return _choose_spawn(bot)
+
+
+func play_footstep(position: Vector3, surface: String, intensity: float) -> void:
+	if audio:
+		audio.play_footstep(surface, position, intensity)
 
 
 func _spawn_player() -> void:
@@ -443,6 +459,7 @@ func _add_box(position: Vector3, size: Vector3, material: Material, solid := tru
 	body.rotation_degrees = rotation
 	body.collision_layer = WORLD_LAYER
 	body.collision_mask = ACTOR_LAYER
+	body.set_meta("surface", _surface_from_name(node_name))
 	arena_root.add_child(body)
 
 	var mesh_instance := MeshInstance3D.new()
@@ -470,6 +487,7 @@ func _add_cylinder(position: Vector3, radius: float, height: float, material: Ma
 	body.rotation_degrees = rotation
 	body.collision_layer = WORLD_LAYER
 	body.collision_mask = ACTOR_LAYER
+	body.set_meta("surface", _surface_from_name(node_name))
 	arena_root.add_child(body)
 
 	var mesh_instance := MeshInstance3D.new()
@@ -499,6 +517,7 @@ func _add_sphere(position: Vector3, scale: Vector3, material: Material, solid :=
 	body.position = position
 	body.collision_layer = WORLD_LAYER
 	body.collision_mask = ACTOR_LAYER
+	body.set_meta("surface", _surface_from_name(node_name))
 	arena_root.add_child(body)
 
 	var mesh_instance := MeshInstance3D.new()
@@ -521,6 +540,30 @@ func _add_sphere(position: Vector3, scale: Vector3, material: Material, solid :=
 	return body
 
 
+func _surface_from_name(node_name: String) -> String:
+	var lower := node_name.to_lower()
+	if lower.contains("sand"):
+		return "sand"
+	if lower.contains("grass") or lower.contains("canopy"):
+		return "grass"
+	if lower.contains("cliff") or lower.contains("rock") or lower.contains("island"):
+		return "stone"
+	if lower.contains("water"):
+		return "water"
+	if lower.contains("metal") or lower.contains("pillar") or lower.contains("ship") or lower.contains("bridge") or lower.contains("mast") or lower.contains("rail") or lower.contains("light"):
+		return "metal"
+	return "concrete"
+
+
+func _surface_from_hit(hit: Dictionary) -> String:
+	if hit.is_empty() or not hit.has("collider"):
+		return "concrete"
+	var collider = hit["collider"]
+	if collider is Node and collider.has_meta("surface"):
+		return String(collider.get_meta("surface"))
+	return "flesh" if collider is Area3D else "concrete"
+
+
 func _spawn_tracer(start: Vector3, end: Vector3, color: Color, thickness: float) -> void:
 	var length := start.distance_to(end)
 	if length <= 0.05:
@@ -541,7 +584,60 @@ func _spawn_tracer(start: Vector3, end: Vector3, color: Color, thickness: float)
 	tween.tween_callback(tracer.queue_free)
 
 
-func _spawn_impact(position: Vector3, color: Color, size: float) -> void:
+func _spawn_muzzle_flash(position: Vector3, direction: Vector3, color: Color) -> void:
+	var flash := Node3D.new()
+	flash.name = "MuzzleFlash"
+	fx_root.add_child(flash)
+	flash.global_position = position
+	if direction.length() > 0.01:
+		flash.look_at(position + direction.normalized())
+
+	var core := MeshInstance3D.new()
+	var core_mesh := SphereMesh.new()
+	core_mesh.radius = 0.08
+	core_mesh.height = 0.16
+	core.mesh = core_mesh
+	core.material_override = _mat(Color(1.0, 0.86, 0.48), color, 4.5, 0.0, 0.1)
+	flash.add_child(core)
+
+	var light := OmniLight3D.new()
+	light.light_color = color
+	light.light_energy = 4.0
+	light.omni_range = 5.0
+	flash.add_child(light)
+
+	var particles := GPUParticles3D.new()
+	particles.name = "MuzzleFlashParticles"
+	particles.amount = 18
+	particles.lifetime = 0.08
+	particles.one_shot = true
+	particles.explosiveness = 1.0
+	particles.local_coords = false
+	var process := ParticleProcessMaterial.new()
+	process.direction = direction.normalized()
+	process.spread = 19.0
+	process.initial_velocity_min = 1.8
+	process.initial_velocity_max = 4.5
+	process.gravity = Vector3.ZERO
+	process.scale_min = 0.025
+	process.scale_max = 0.085
+	process.color = Color(color.r, color.g, color.b, 0.9)
+	particles.process_material = process
+	var quad := QuadMesh.new()
+	quad.size = Vector2(0.18, 0.18)
+	particles.set_draw_pass_mesh(0, quad)
+	flash.add_child(particles)
+	particles.emitting = true
+
+	var tween := create_tween()
+	tween.tween_property(core, "scale", Vector3.ONE * 1.8, 0.035)
+	tween.parallel().tween_property(core, "transparency", 1.0, 0.045)
+	tween.parallel().tween_property(light, "light_energy", 0.0, 0.055)
+	tween.tween_interval(0.12)
+	tween.tween_callback(flash.queue_free)
+
+
+func _spawn_impact(position: Vector3, color: Color, size: float, normal := Vector3.UP, surface := "concrete") -> void:
 	var pulse := MeshInstance3D.new()
 	var mesh := SphereMesh.new()
 	mesh.radius = size
@@ -555,6 +651,102 @@ func _spawn_impact(position: Vector3, color: Color, size: float) -> void:
 	tween.tween_property(pulse, "scale", Vector3.ONE * 2.6, 0.11)
 	tween.parallel().tween_property(pulse, "transparency", 1.0, 0.11)
 	tween.tween_callback(pulse.queue_free)
+
+	if surface != "flesh":
+		_spawn_impact_decal(position, normal, color, surface)
+	else:
+		_spawn_blood_effect(position, normal)
+
+
+func _spawn_impact_decal(position: Vector3, normal: Vector3, color: Color, surface: String) -> void:
+	var decal := MeshInstance3D.new()
+	decal.name = "%sImpactDecal" % surface.capitalize()
+	var mesh := PlaneMesh.new()
+	mesh.size = Vector2(0.34, 0.34)
+	decal.mesh = mesh
+	var material := StandardMaterial3D.new()
+	var scorch := Color(0.035, 0.030, 0.026, 0.62)
+	if surface == "sand":
+		scorch = Color(0.20, 0.15, 0.09, 0.45)
+	elif surface == "grass":
+		scorch = Color(0.02, 0.09, 0.035, 0.40)
+	elif surface == "metal":
+		scorch = Color(color.r * 0.35, color.g * 0.45, color.b * 0.60, 0.55)
+	elif surface == "stone":
+		scorch = Color(0.05, 0.045, 0.04, 0.55)
+	material.albedo_color = scorch
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	decal.material_override = material
+	fx_root.add_child(decal)
+
+	var n := normal.normalized()
+	if n.length() < 0.01:
+		n = Vector3.UP
+	var tangent := n.cross(Vector3.UP)
+	if tangent.length() < 0.01:
+		tangent = n.cross(Vector3.RIGHT)
+	tangent = tangent.normalized()
+	var binormal := tangent.cross(n).normalized()
+	decal.global_transform = Transform3D(Basis(tangent, n, binormal), position + n * 0.018)
+
+	var tween := create_tween()
+	tween.tween_interval(8.0)
+	tween.tween_property(decal, "transparency", 1.0, 0.7)
+	tween.tween_callback(decal.queue_free)
+
+
+func _spawn_blood_effect(position: Vector3, normal: Vector3) -> void:
+	var n := normal.normalized()
+	if n.length() < 0.01:
+		n = Vector3.UP
+	var blood_material := _mat(Color(0.52, 0.015, 0.018, 0.86), Color(0.08, 0.0, 0.0), 0.02, 0.0, 0.42)
+	blood_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	for index in range(12):
+		var drop := MeshInstance3D.new()
+		drop.name = "BloodDrop"
+		var mesh := SphereMesh.new()
+		mesh.radius = randf_range(0.018, 0.046)
+		mesh.height = mesh.radius * 2.0
+		drop.mesh = mesh
+		drop.material_override = blood_material
+		fx_root.add_child(drop)
+		drop.global_position = position + n * 0.04
+		var spray := (n + Vector3(randf_range(-0.85, 0.85), randf_range(0.0, 0.75), randf_range(-0.85, 0.85))).normalized()
+		var target := drop.global_position + spray * randf_range(0.18, 0.72) + Vector3.DOWN * randf_range(0.03, 0.20)
+		var tween := create_tween()
+		tween.tween_property(drop, "global_position", target, randf_range(0.10, 0.22))
+		tween.parallel().tween_property(drop, "scale", Vector3.ONE * randf_range(0.45, 0.75), 0.20)
+		tween.tween_interval(0.28)
+		tween.tween_property(drop, "transparency", 1.0, 0.25)
+		tween.tween_callback(drop.queue_free)
+
+	var mist := GPUParticles3D.new()
+	mist.name = "BloodMist"
+	mist.amount = 26
+	mist.lifetime = 0.22
+	mist.one_shot = true
+	mist.explosiveness = 1.0
+	mist.local_coords = false
+	var process := ParticleProcessMaterial.new()
+	process.direction = n
+	process.spread = 42.0
+	process.initial_velocity_min = 0.9
+	process.initial_velocity_max = 3.2
+	process.gravity = Vector3(0, -5.2, 0)
+	process.scale_min = 0.025
+	process.scale_max = 0.075
+	process.color = Color(0.62, 0.02, 0.025, 0.72)
+	mist.process_material = process
+	var quad := QuadMesh.new()
+	quad.size = Vector2(0.08, 0.08)
+	mist.set_draw_pass_mesh(0, quad)
+	fx_root.add_child(mist)
+	mist.global_position = position + n * 0.05
+	mist.emitting = true
+	var mist_tween := create_tween()
+	mist_tween.tween_interval(0.55)
+	mist_tween.tween_callback(mist.queue_free)
 
 
 func _raycast(from: Vector3, to: Vector3, mask: int, exclude: Array = []) -> Dictionary:

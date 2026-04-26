@@ -6,6 +6,19 @@ const ACCEL := 18.0
 const GRAVITY := 24.0
 const WORLD_LAYER := 1
 const HITBOX_LAYER := 4
+const CHARACTER_SCENES := [
+	"res://assets/characters/combatant.tscn",
+	"res://assets/characters/combatant.glb",
+]
+
+const ANIMATION_ALIASES := {
+	"idle": ["idle", "combat_idle", "rifle_idle"],
+	"run": ["run", "jog", "locomotion", "rifle_run"],
+	"shoot": ["shoot", "fire", "rifle_fire", "attack"],
+	"hit": ["hit", "damage", "flinch"],
+	"death": ["death", "die", "knockdown"],
+	"respawn": ["respawn", "spawn", "stand_up", "idle"],
+}
 
 var game: Node
 var callsign := "Synthetic"
@@ -19,6 +32,9 @@ var shoot_timer := 0.0
 var think_timer := 0.0
 var strafe_dir := 1.0
 var flash := 0.0
+var visual_root: Node3D
+var animation_player: AnimationPlayer
+var animation_state := ""
 var body_mesh: MeshInstance3D
 var visor_mesh: MeshInstance3D
 var hit_areas: Array[Area3D] = []
@@ -50,6 +66,7 @@ func tick_bot(delta: float, player) -> void:
 	var distance: float = to_player.length()
 	var visible := _has_line_of_sight(player)
 	var move := Vector3.ZERO
+	var fired := false
 
 	if visible and distance < 34.0 and player.alive:
 		var direction: Vector3 = to_player.normalized()
@@ -62,6 +79,7 @@ func tick_bot(delta: float, player) -> void:
 		move += side * 0.7
 		if shoot_timer == 0.0:
 			_fire_at_player(player, distance)
+			fired = true
 	else:
 		if think_timer == 0.0 or global_position.distance_to(target_point) < 1.6:
 			target_point = nav_points.pick_random()
@@ -72,6 +90,7 @@ func tick_bot(delta: float, player) -> void:
 	_apply_movement(move, delta)
 	if player.alive:
 		look_at(Vector3(player.global_position.x, global_position.y, player.global_position.z))
+	_update_animation_state(move, fired)
 
 
 func apply_damage(amount: float, zone: String) -> bool:
@@ -80,12 +99,14 @@ func apply_damage(amount: float, zone: String) -> bool:
 	health = maxf(0.0, health - amount)
 	flash = 1.0
 	if health > 0.0:
+		_set_animation_state("hit", true)
 		return false
 
 	alive = false
 	respawn_timer = randf_range(2.0, 3.2)
-	visible = false
 	collision_shape.disabled = true
+	_set_animation_state("death", true)
+	_hide_after_death(0.65)
 	for area in hit_areas:
 		area.monitoring = false
 		area.monitorable = false
@@ -102,6 +123,7 @@ func respawn(position: Vector3) -> void:
 	velocity = Vector3.ZERO
 	shoot_timer = randf_range(0.2, 0.7)
 	think_timer = randf_range(0.1, 0.4)
+	_set_animation_state("respawn", true)
 	for area in hit_areas:
 		area.monitoring = true
 		area.monitorable = true
@@ -121,6 +143,7 @@ func _apply_movement(move: Vector3, delta: float) -> void:
 
 func _fire_at_player(player, distance: float) -> void:
 	shoot_timer = randf_range(0.18, 0.34)
+	_set_animation_state("shoot", true)
 	var accuracy := clampf(0.86 - distance * 0.012 - Vector2(player.velocity.x, player.velocity.z).length() * 0.018, 0.26, 0.88)
 	var target: Vector3 = player.eye_position()
 	target += Vector3(randf_range(-1.2, 1.2), randf_range(-0.7, 0.55), randf_range(-1.2, 1.2)) * (1.0 - accuracy)
@@ -149,6 +172,30 @@ func _add_collision() -> void:
 
 
 func _add_mesh() -> void:
+	if _load_character_model():
+		return
+	_build_dev_character()
+
+
+func _load_character_model() -> bool:
+	for path in CHARACTER_SCENES:
+		if ResourceLoader.exists(path):
+			var resource := load(path)
+			if resource is PackedScene:
+				visual_root = resource.instantiate() as Node3D
+				if visual_root:
+					visual_root.name = "ImportedCombatant"
+					add_child(visual_root)
+					animation_player = _find_animation_player(visual_root)
+					_set_animation_state("idle", true)
+					return true
+	return false
+
+
+func _build_dev_character() -> void:
+	visual_root = Node3D.new()
+	visual_root.name = "DevCombatantFallback"
+	add_child(visual_root)
 	var armor_material: Material = materials.get("bot", StandardMaterial3D.new())
 	var glow_material: Material = materials.get("bot_glow", StandardMaterial3D.new())
 	var dark_material: Material = materials.get("dark_metal", armor_material)
@@ -160,7 +207,7 @@ func _add_mesh() -> void:
 	body_mesh.mesh = body
 	body_mesh.position.y = 0.9
 	body_mesh.material_override = armor_material
-	add_child(body_mesh)
+	visual_root.add_child(body_mesh)
 
 	_add_bot_box("ChestPlate", Vector3(0, 1.17, -0.23), Vector3(0.72, 0.48, 0.12), dark_material)
 	_add_bot_box("CoreLight", Vector3(0, 1.25, -0.31), Vector3(0.20, 0.08, 0.045), glow_material)
@@ -178,7 +225,7 @@ func _add_mesh() -> void:
 	visor_mesh.mesh = visor
 	visor_mesh.position = Vector3(0, 1.84, -0.36)
 	visor_mesh.material_override = glow_material.duplicate()
-	add_child(visor_mesh)
+	visual_root.add_child(visor_mesh)
 
 	_add_bot_box("HelmetBrow", Vector3(0, 1.92, -0.24), Vector3(0.70, 0.14, 0.26), dark_material)
 	_add_bot_box("Backpack", Vector3(0, 1.12, 0.36), Vector3(0.52, 0.62, 0.20), dark_material)
@@ -195,8 +242,50 @@ func _add_bot_box(node_name: String, position: Vector3, size: Vector3, material:
 	mesh_instance.position = position
 	mesh_instance.rotation_degrees = rotation
 	mesh_instance.material_override = material
-	add_child(mesh_instance)
+	visual_root.add_child(mesh_instance)
 	return mesh_instance
+
+
+func _update_animation_state(move: Vector3, fired: bool) -> void:
+	if fired:
+		return
+	if move.length() > 0.1:
+		_set_animation_state("run")
+	else:
+		_set_animation_state("idle")
+	if not animation_player and visual_root:
+		var bob := sin(Time.get_ticks_msec() * 0.012 + float(get_instance_id() % 100)) * 0.035 if move.length() > 0.1 else 0.0
+		visual_root.position.y = lerpf(visual_root.position.y, bob, 0.18)
+		visual_root.rotation_degrees.z = lerpf(visual_root.rotation_degrees.z, clampf(move.x, -1.0, 1.0) * -3.5, 0.12)
+
+
+func _set_animation_state(state: String, restart := false) -> void:
+	if animation_state == state and not restart:
+		return
+	animation_state = state
+	if not animation_player:
+		return
+	var candidates: Array = ANIMATION_ALIASES.get(state, [state])
+	for animation_name in animation_player.get_animation_list():
+		if candidates.has(String(animation_name).to_lower()):
+			animation_player.play(animation_name)
+			return
+
+
+func _find_animation_player(root: Node) -> AnimationPlayer:
+	if root is AnimationPlayer:
+		return root
+	for child in root.get_children():
+		var found := _find_animation_player(child)
+		if found:
+			return found
+	return null
+
+
+func _hide_after_death(seconds: float) -> void:
+	await get_tree().create_timer(seconds).timeout
+	if not alive:
+		visible = false
 
 
 func _add_hitbox(zone: String, offset: Vector3, size: Vector3, multiplier: float) -> void:

@@ -10,7 +10,7 @@ The browser prototype has been removed. Development now happens here.
 - Sharp mouse feel and responsive movement.
 - Readable competitive combat with recoil, spread, hit zones, and fast respawns.
 - High-end stylized sci-fi presentation without bloating the project.
-- Procedural-first content until the gameplay foundation is strong.
+- Import-ready art/audio pipeline with lightweight dev fallbacks.
 
 ## Run
 
@@ -30,10 +30,15 @@ The browser prototype has been removed. Development now happens here.
 - `Esc`: Release cursor
 - `Enter`: Restart match
 
+## Production Asset Pipeline
+
+- Drop first-person viewmodels into `assets/viewmodels/` using the filenames in `assets/README.md`.
+- Drop the rigged enemy scene into `assets/characters/combatant.tscn` or `combatant.glb`.
+- Drop surface footstep audio into `assets/audio/footsteps/`.
+- The game now drives imported viewmodel animation clips, bot animation states, surface footsteps, muzzle particles, and impact decals.
+
 ## Next Quality Targets
 
-- Replace procedural weapon blocks with imported first-person viewmodels.
-- Add proper footsteps, surfaces, reload animation, muzzle flash particles, and impact decals.
-- Replace simple bot capsules with rigged characters and animation states.
+- Source or create final original FPS viewmodel and combatant assets.
 - Convert the procedural arena into an editable modular level kit.
 - Add settings for sensitivity, FOV, audio volume, graphics quality, and keybinds.
