@@ -65,7 +65,7 @@ func _free_after(node: Node, seconds: float) -> void:
 
 
 func _build_footstep_bank() -> void:
-	for surface in ["concrete", "sand", "grass", "stone", "metal", "water"]:
+	for surface in ["concrete", "sand", "grass", "stone", "metal", "water", "wood"]:
 		var loaded := _load_surface_steps(surface)
 		if loaded.is_empty():
 			loaded = _make_surface_steps(surface)
@@ -92,6 +92,7 @@ func _make_surface_steps(surface: String) -> Array:
 		"stone": [0.090, 180.0, 0.24, 0.55],
 		"metal": [0.080, 260.0, 0.22, 0.36],
 		"water": [0.130, 80.0, 0.18, 0.85],
+		"wood": [0.100, 210.0, 0.20, 0.48],
 	}
 	var spec: Array = specs.get(surface, specs["concrete"])
 	var result := []
@@ -119,6 +120,9 @@ func _make_footstep(duration: float, frequency: float, volume: float, noise: flo
 		elif surface == "water":
 			thump *= 0.2
 			grit += sin(t * TAU * 22.0) * 0.25
+		elif surface == "wood":
+			thump *= 0.85
+			grit += sin(t * TAU * frequency * 3.4) * 0.18
 		var value := (thump + scrape + grit) * volume * envelope
 		bytes.encode_s16(index * 2, int(clampf(value, -1.0, 1.0) * 32767.0))
 	return _wav(bytes, sample_rate)

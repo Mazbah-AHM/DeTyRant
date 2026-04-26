@@ -3,10 +3,15 @@ extends CharacterBody3D
 const GRAVITY        := 24.0
 const WALK_SPEED     := 7.2
 const SPRINT_SPEED   := 10.4
+const CROUCH_SPEED   := 4.1
 const ACCELERATION   := 42.0
 const FRICTION       := 34.0
 const AIR_CONTROL    := 8.0
 const JUMP_SPEED     := 7.4
+const STAND_CAPSULE_HEIGHT := 1.82
+const CROUCH_CAPSULE_HEIGHT := 1.18
+const STAND_EYE_HEIGHT := 1.58
+const CROUCH_EYE_HEIGHT := 1.05
 
 const WEAPONS := {
 	"pistol": {
@@ -63,6 +68,7 @@ var recoil_offset  := Vector2.ZERO
 var weapon_kick    := 0.0
 var movement_input := Vector2.ZERO
 var look_events    := 0
+var crouching      := false
 
 var camera: Camera3D
 var pitch_pivot: Node3D
@@ -128,6 +134,8 @@ func respawn(position: Vector3) -> void:
 	velocity        = Vector3.ZERO
 	pitch           = -0.02
 	pitch_pivot.rotation.x = pitch
+	crouching = false
+	_set_crouch_height(STAND_CAPSULE_HEIGHT, STAND_EYE_HEIGHT)
 	current_weapon  = "rifle"
 	_reset_magazine()
 	_configure_weapon_model()
@@ -172,6 +180,7 @@ func _read_actions() -> void:
 
 
 func _update_movement(delta: float) -> void:
+	_update_crouch(delta)
 	if not is_on_floor():
 		velocity.y -= GRAVITY * delta
 	else:
@@ -179,7 +188,11 @@ func _update_movement(delta: float) -> void:
 		if Input.is_action_just_pressed("jump"):
 			velocity.y = JUMP_SPEED
 
-	var speed := SPRINT_SPEED if Input.is_action_pressed("sprint") and movement_input.y > 0.0 else WALK_SPEED
+	var speed := WALK_SPEED
+	if crouching:
+		speed = CROUCH_SPEED
+	elif Input.is_action_pressed("sprint") and movement_input.y > 0.0:
+		speed = SPRINT_SPEED
 	camera.fov = lerpf(camera.fov, 82.0 if speed == SPRINT_SPEED else 78.0, delta * 5.5)
 	var forward := -global_transform.basis.z
 	var right   :=  global_transform.basis.x
@@ -191,6 +204,32 @@ func _update_movement(delta: float) -> void:
 		velocity.x = move_toward(velocity.x, 0.0, FRICTION * delta)
 		velocity.z = move_toward(velocity.z, 0.0, FRICTION * delta)
 	move_and_slide()
+
+
+func _update_crouch(delta: float) -> void:
+	var wants_crouch := Input.is_action_pressed("crouch")
+	crouching = wants_crouch or (crouching and not _can_stand())
+	var target_height := CROUCH_CAPSULE_HEIGHT if crouching else STAND_CAPSULE_HEIGHT
+	var target_eye := CROUCH_EYE_HEIGHT if crouching else STAND_EYE_HEIGHT
+	var capsule := collision_shape.shape as CapsuleShape3D
+	capsule.height = lerpf(capsule.height, target_height, delta * 14.0)
+	collision_shape.position.y = capsule.height * 0.5
+	pitch_pivot.position.y = lerpf(pitch_pivot.position.y, target_eye, delta * 14.0)
+
+
+func _set_crouch_height(capsule_height: float, eye_height: float) -> void:
+	var capsule := collision_shape.shape as CapsuleShape3D
+	capsule.height = capsule_height
+	collision_shape.position.y = capsule.height * 0.5
+	pitch_pivot.position.y = eye_height
+
+
+func _can_stand() -> bool:
+	var params := PhysicsRayQueryParameters3D.create(global_position + Vector3.UP * 0.72, global_position + Vector3.UP * STAND_CAPSULE_HEIGHT, 1)
+	params.exclude = [get_rid()]
+	params.collide_with_areas = false
+	params.collide_with_bodies = true
+	return get_world_3d().direct_space_state.intersect_ray(params).is_empty()
 
 
 func _update_footsteps(delta: float) -> void:

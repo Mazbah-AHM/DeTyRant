@@ -250,13 +250,30 @@ func _build_materials() -> void:
 	materials.glass = _mat(Color(0.30, 0.64, 0.86, 0.28), Color(0.09, 0.40, 0.65), 0.55, 0.0, 0.05)
 	materials.cloud = _mat(Color(0.92, 0.97, 1.0, 0.34), Color(0.22, 0.38, 0.58), 0.10, 0.0, 0.62)
 	materials.banner = _mat(Color(0.95, 0.24, 0.18), Color(0.35, 0.04, 0.04), 0.05, 0.08, 0.48)
+	materials.asphalt = _mat(Color(0.13, 0.13, 0.12), Color(0.01, 0.01, 0.008), 0.01, 0.0, 0.96)
+	materials.brick = _mat(Color(0.47, 0.22, 0.14), Color(0.025, 0.008, 0.004), 0.02, 0.0, 0.82)
+	materials.wood = _mat(Color(0.42, 0.24, 0.12), Color(0.035, 0.016, 0.006), 0.02, 0.02, 0.74)
+	materials.bark = _mat(Color(0.20, 0.12, 0.07), Color(0.018, 0.009, 0.003), 0.01, 0.0, 0.88)
+	materials.foliage = _mat(Color(0.11, 0.31, 0.11), Color(0.006, 0.030, 0.006), 0.025, 0.0, 0.92)
+	materials.foliage_light = _mat(Color(0.26, 0.48, 0.18), Color(0.010, 0.045, 0.008), 0.03, 0.0, 0.9)
+	materials.mud = _mat(Color(0.22, 0.17, 0.12), Color(0.012, 0.008, 0.004), 0.01, 0.0, 0.98)
+	materials.rust = _mat(Color(0.63, 0.24, 0.09), Color(0.05, 0.012, 0.003), 0.02, 0.18, 0.78)
+	materials.puddle = _mat(Color(0.09, 0.13, 0.12, 0.58), Color(0.01, 0.03, 0.025), 0.08, 0.0, 0.06)
 	materials.glass.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	materials.water.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	materials.cloud.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	materials.puddle.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	_apply_material_noise(materials.terrain, 17, 0.045, Vector3(12, 12, 1))
 	_apply_material_noise(materials.concrete, 23, 0.070, Vector3(9, 9, 1))
 	_apply_material_noise(materials.sand, 31, 0.060, Vector3(10, 10, 1))
 	_apply_material_noise(materials.cliff, 43, 0.090, Vector3(8, 8, 1))
+	_apply_material_noise(materials.asphalt, 53, 0.115, Vector3(13, 13, 1))
+	_apply_material_noise(materials.brick, 61, 0.080, Vector3(5, 5, 1))
+	_apply_material_noise(materials.wood, 67, 0.135, Vector3(8, 8, 1))
+	_apply_material_noise(materials.bark, 71, 0.180, Vector3(5, 12, 1))
+	_apply_material_noise(materials.foliage, 73, 0.160, Vector3(6, 6, 1))
+	_apply_material_noise(materials.mud, 79, 0.100, Vector3(8, 8, 1))
+	_apply_material_noise(materials.rust, 83, 0.150, Vector3(4, 4, 1))
 
 
 func _mat(albedo: Color, emission: Color, emission_energy: float, metallic: float, roughness: float) -> StandardMaterial3D:
@@ -375,6 +392,7 @@ func _build_arena() -> void:
 	_build_bridge_landmark()
 	_build_dropship_landmark()
 	_build_terrain_dressing()
+	_build_realism_dressing()
 	_build_skyline_dressing()
 
 
@@ -431,6 +449,91 @@ func _build_terrain_dressing() -> void:
 		_add_sphere(position + Vector3.UP * 1.55, Vector3(1.1, 0.8, 1.1), materials.grass, false, "WindCutCanopy")
 	for x in [-20, -10, 10, 20]:
 		_add_box(Vector3(x, 0.12, 25.5), Vector3(4.4, 0.08, 0.22), materials.white_mark, false, "WaterEdgeStripe")
+
+
+func _build_realism_dressing() -> void:
+	_add_box(Vector3(0, 0.075, 0), Vector3(54, 0.045, 13.5), materials.asphalt, false, "CrackedAsphaltOverlay")
+	_add_box(Vector3(-5.0, 0.092, -3.2), Vector3(6.5, 0.03, 3.2), materials.mud, false, "MuddyPatch")
+	_add_box(Vector3(8.5, 0.096, 5.4), Vector3(5.8, 0.025, 2.6), materials.mud, false, "MuddyPatch")
+	_add_puddle(Vector3(-5.4, 0.126, -3.0), Vector3(2.5, 0.018, 0.95), Vector3(0, 12, 0))
+	_add_puddle(Vector3(8.9, 0.126, 5.2), Vector3(2.0, 0.018, 0.78), Vector3(0, -10, 0))
+
+	_add_ruined_facade(Vector3(-31.5, 2.8, -12.0), Vector3(0, 0, 0), 0)
+	_add_ruined_facade(Vector3(31.5, 2.8, 10.5), Vector3(0, 180, 0), 1)
+	_add_wood_shack(Vector3(-21.0, 1.25, 20.5), Vector3(0, 14, 0))
+	_add_rusted_car(Vector3(19.5, 0.55, -17.5), Vector3(0, -16, 0))
+	_add_rusted_car(Vector3(-18.5, 0.55, -18.8), Vector3(0, 18, 0))
+
+	for position in [Vector3(-29, 0.0, -2), Vector3(29, 0.0, -8), Vector3(-26, 0.0, 15), Vector3(27, 0.0, 20), Vector3(-6, 0.0, 25), Vector3(13, 0.0, 24)]:
+		_add_tree(position)
+
+	for index in range(130):
+		var side := -1.0 if index % 2 == 0 else 1.0
+		var x := side * rng.randf_range(20.0, 30.5)
+		var z := rng.randf_range(-26.0, 27.0)
+		_add_grass_clump(Vector3(x, 0.18, z), rng.randf_range(0.65, 1.35))
+
+	for index in range(32):
+		var x := rng.randf_range(-24.0, 24.0)
+		var z := rng.randf_range(-22.0, 22.0)
+		if absf(x) < 9.0 and absf(z) < 8.0:
+			continue
+		var size := Vector3(rng.randf_range(0.25, 0.85), 0.05, rng.randf_range(0.20, 0.65))
+		_add_box(Vector3(x, 0.135, z), size, materials.cliff, false, "LooseDebris", Vector3(0, rng.randf_range(0.0, 180.0), 0))
+
+
+func _add_puddle(position: Vector3, size: Vector3, rotation := Vector3.ZERO) -> void:
+	_add_box(position, size, materials.puddle, false, "WaterPuddle", rotation)
+	_add_box(position + Vector3.UP * 0.006, Vector3(size.x * 0.82, size.y, size.z * 0.65), materials.glass, false, "PuddleHighlight", rotation)
+
+
+func _add_ruined_facade(position: Vector3, rotation := Vector3.ZERO, variant := 0) -> void:
+	_add_box(position, Vector3(0.7, 5.6, 14.0), materials.brick, false, "BrickBuildingFacade", rotation)
+	_add_box(position + Vector3(0, 2.95, 0), Vector3(0.9, 0.28, 14.4), materials.concrete, false, "FacadeCornice", rotation)
+	for z in [-4.6, 0.0, 4.6]:
+		for y in [1.9, 3.4]:
+			_add_box(position + Vector3(-0.42, y - 2.8, z), Vector3(0.08, 1.0, 1.15), materials.dark_metal, false, "BrokenWindowVoid", rotation)
+			_add_box(position + Vector3(-0.47, y - 2.8, z), Vector3(0.04, 0.82, 0.92), materials.glass, false, "DirtyWindowGlass", rotation)
+	if variant == 1:
+		_add_box(position + Vector3(-0.55, -1.1, -4.4), Vector3(0.08, 1.8, 1.2), materials.dark_metal, false, "DoorVoid", rotation)
+	for index in range(6):
+		var z_offset := -6.2 + float(index) * 2.45
+		_add_box(position + Vector3(-0.52, -2.15, z_offset), Vector3(0.08, 0.18, 1.6), materials.foliage, false, "FacadeIvy", rotation)
+
+
+func _add_wood_shack(position: Vector3, rotation := Vector3.ZERO) -> void:
+	_add_box(position, Vector3(6.8, 2.4, 5.2), materials.wood, false, "WoodShackBody", rotation)
+	_add_box(position + Vector3(0, 1.45, 0), Vector3(7.4, 0.30, 5.9), materials.rust, false, "RustRoof", rotation + Vector3(0, 0, 4))
+	_add_box(position + Vector3(0, 1.55, 0), Vector3(7.4, 0.30, 5.9), materials.rust, false, "RustRoof", rotation + Vector3(0, 0, -4))
+	_add_box(position + Vector3(0, -0.35, -2.68), Vector3(1.2, 1.6, 0.08), materials.dark_metal, false, "ShackDoor", rotation)
+	for x in [-2.1, 2.1]:
+		_add_box(position + Vector3(x, 0.25, -2.72), Vector3(1.05, 0.8, 0.06), materials.glass, false, "ShackWindow", rotation)
+
+
+func _add_rusted_car(position: Vector3, rotation := Vector3.ZERO) -> void:
+	_add_box(position + Vector3(0, 0.35, 0), Vector3(3.8, 0.75, 1.8), materials.rust, false, "RustedCarBody", rotation)
+	_add_box(position + Vector3(-0.35, 0.95, 0), Vector3(1.8, 0.65, 1.5), materials.dark_metal, false, "RustedCarCabin", rotation)
+	_add_box(position + Vector3(-0.35, 1.02, -0.78), Vector3(1.3, 0.35, 0.08), materials.glass, false, "BrokenWindshield", rotation)
+	for x in [-1.25, 1.25]:
+		for z in [-0.92, 0.92]:
+			_add_cylinder(position + Vector3(x, 0.18, z), 0.34, 0.18, materials.dark_metal, false, "CarWheel", rotation + Vector3(90, 0, 0))
+
+
+func _add_tree(position: Vector3) -> void:
+	var height := rng.randf_range(3.0, 5.4)
+	_add_cylinder(position + Vector3.UP * (height * 0.5), rng.randf_range(0.16, 0.28), height, materials.bark, false, "TreeTrunk")
+	for index in range(4):
+		var canopy_offset := Vector3(rng.randf_range(-0.65, 0.65), height + rng.randf_range(-0.1, 0.9), rng.randf_range(-0.65, 0.65))
+		var scale := Vector3(rng.randf_range(1.0, 1.75), rng.randf_range(0.70, 1.15), rng.randf_range(1.0, 1.75))
+		_add_sphere(position + canopy_offset, scale, materials.foliage if index % 2 == 0 else materials.foliage_light, false, "LeafCanopy")
+
+
+func _add_grass_clump(position: Vector3, scale: float) -> void:
+	for blade in range(4):
+		var offset := Vector3(rng.randf_range(-0.20, 0.20), 0, rng.randf_range(-0.20, 0.20))
+		var height := rng.randf_range(0.45, 1.05) * scale
+		var rotation := Vector3(rng.randf_range(-10.0, 10.0), rng.randf_range(0.0, 180.0), rng.randf_range(-12.0, 12.0))
+		_add_box(position + offset + Vector3.UP * (height * 0.5), Vector3(0.035, height, 0.055), materials.foliage_light, false, "GrassBlade", rotation)
 
 
 func _build_skyline_dressing() -> void:
@@ -544,13 +647,15 @@ func _surface_from_name(node_name: String) -> String:
 	var lower := node_name.to_lower()
 	if lower.contains("sand"):
 		return "sand"
-	if lower.contains("grass") or lower.contains("canopy"):
+	if lower.contains("grass") or lower.contains("canopy") or lower.contains("leaf") or lower.contains("ivy"):
 		return "grass"
 	if lower.contains("cliff") or lower.contains("rock") or lower.contains("island"):
 		return "stone"
-	if lower.contains("water"):
+	if lower.contains("water") or lower.contains("puddle"):
 		return "water"
-	if lower.contains("metal") or lower.contains("pillar") or lower.contains("ship") or lower.contains("bridge") or lower.contains("mast") or lower.contains("rail") or lower.contains("light"):
+	if lower.contains("wood") or lower.contains("shack"):
+		return "wood"
+	if lower.contains("metal") or lower.contains("pillar") or lower.contains("ship") or lower.contains("bridge") or lower.contains("mast") or lower.contains("rail") or lower.contains("light") or lower.contains("rust") or lower.contains("car"):
 		return "metal"
 	return "concrete"
 
@@ -794,6 +899,7 @@ func _install_input_map() -> void:
 	_bind_key("move_left", KEY_A)
 	_bind_key("move_right", KEY_D)
 	_bind_key("sprint", KEY_SHIFT)
+	_bind_key("crouch", KEY_CTRL)
 	_bind_key("jump", KEY_SPACE)
 	_bind_key("reload", KEY_R)
 	_bind_key("weapon_1", KEY_1)

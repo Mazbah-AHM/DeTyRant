@@ -52,3 +52,13 @@ Footsteps can be dropped into:
 - `audio/footsteps/water_1.wav` through `water_4.wav`
 
 `.ogg` and `.mp3` are also supported by the loader.
+
+## Recommended Realistic Material Sources
+
+Use license-safe assets only. Good sources to start with:
+
+- ambientCG PBR materials: CC0.
+- Poly Haven textures/HDRIs/models: CC0.
+- Godot Asset Library: free/open-source assets with per-asset licenses.
+
+Avoid importing Unity Asset Store or commercial marketplace content unless you personally own the license and the license allows redistribution in this project.

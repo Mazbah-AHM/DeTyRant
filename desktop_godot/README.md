@@ -22,6 +22,7 @@ The browser prototype has been removed. Development now happens here.
 
 - `W A S D`: Move
 - `Shift`: Sprint
+- `Ctrl`: Crouch
 - `Space`: Jump
 - `Mouse`: Aim
 - `Left Click`: Fire

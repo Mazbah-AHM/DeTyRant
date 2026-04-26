@@ -10,8 +10,12 @@ var feed_label: Label
 var health_bar: ColorRect
 var damage_flash: ColorRect
 var crosshair: Control
+var minimap: Control
 var crosshair_gap := 9.0
 var hit_marker := 0.0
+var minimap_player_position := Vector3.ZERO
+var minimap_player_yaw := 0.0
+var minimap_bot_positions: Array[Vector3] = []
 
 func _ready() -> void:
 	var root := Control.new()
@@ -26,17 +30,24 @@ func _ready() -> void:
 	damage_flash.color = Color(0.65, 0.02, 0.03, 0.0)
 	root.add_child(damage_flash)
 
-	var left_panel := _panel(Vector2(22, 22), Vector2(290, 128), Color(0.01, 0.025, 0.04, 0.58))
+	minimap = Control.new()
+	minimap.position = Vector2(26, 24)
+	minimap.size = Vector2(190, 190)
+	minimap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	minimap.draw.connect(_draw_minimap)
+	root.add_child(minimap)
+
+	var left_panel := _panel(Vector2(22, 740), Vector2(290, 128), Color(0.01, 0.025, 0.04, 0.58))
 	root.add_child(left_panel)
-	health_label = _label(Vector2(42, 36), 30, Color(0.92, 0.98, 1.0))
-	weapon_label = _label(Vector2(42, 74), 16, Color(0.44, 0.9, 1.0))
-	ammo_label = _label(Vector2(42, 100), 20, Color(0.88, 0.94, 1.0))
+	health_label = _label(Vector2(42, 754), 30, Color(0.92, 0.98, 1.0))
+	weapon_label = _label(Vector2(42, 792), 16, Color(0.44, 0.9, 1.0))
+	ammo_label = _label(Vector2(42, 818), 20, Color(0.88, 0.94, 1.0))
 	root.add_child(health_label)
 	root.add_child(weapon_label)
 	root.add_child(ammo_label)
 
 	var health_back := ColorRect.new()
-	health_back.position = Vector2(42, 132)
+	health_back.position = Vector2(42, 850)
 	health_back.size = Vector2(230, 5)
 	health_back.color = Color(0.16, 0.19, 0.24, 0.9)
 	root.add_child(health_back)
@@ -46,19 +57,19 @@ func _ready() -> void:
 	health_bar.color = Color(0.22, 0.9, 1.0, 0.95)
 	root.add_child(health_bar)
 
-	var right_panel := _panel(Vector2(1280, 22), Vector2(298, 112), Color(0.01, 0.025, 0.04, 0.52))
+	var right_panel := _panel(Vector2(1280, 744), Vector2(298, 112), Color(0.01, 0.025, 0.04, 0.52))
 	root.add_child(right_panel)
-	timer_label = _label(Vector2(1304, 36), 26, Color(0.94, 0.98, 1.0))
-	score_label = _label(Vector2(1304, 76), 18, Color(0.74, 0.86, 0.94))
+	timer_label = _label(Vector2(1304, 758), 26, Color(0.94, 0.98, 1.0))
+	score_label = _label(Vector2(1304, 798), 18, Color(0.74, 0.86, 0.94))
 	root.add_child(timer_label)
 	root.add_child(score_label)
 
-	state_label = _label(Vector2(620, 32), 18, Color(1.0, 0.72, 0.36))
+	state_label = _label(Vector2(620, 820), 18, Color(1.0, 0.72, 0.36))
 	state_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	state_label.size = Vector2(360, 30)
 	root.add_child(state_label)
 
-	feed_label = _label(Vector2(1160, 690), 16, Color(0.86, 0.94, 1.0))
+	feed_label = _label(Vector2(1160, 580), 16, Color(0.86, 0.94, 1.0))
 	feed_label.size = Vector2(390, 160)
 	feed_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	root.add_child(feed_label)
@@ -87,7 +98,14 @@ func update_match(player, bots: Array, seconds: float, active: bool, feed: Array
 	damage_flash.color.a = clampf(player.damage_flash * 0.10, 0.0, 0.10)
 	crosshair_gap = 9.0 + player.spread_bloom * 180.0 + clampf(Vector2(player.velocity.x, player.velocity.z).length() * 0.42, 0.0, 5.5)
 	hit_marker = player.hit_marker
+	minimap_player_position = player.global_position
+	minimap_player_yaw = player.rotation.y
+	minimap_bot_positions.clear()
+	for bot in bots:
+		if bot and bot.alive:
+			minimap_bot_positions.append(bot.global_position)
 	crosshair.queue_redraw()
+	minimap.queue_redraw()
 
 
 func _draw_crosshair() -> void:
@@ -106,6 +124,35 @@ func _draw_crosshair() -> void:
 		crosshair.draw_line(Vector2(13, -13), Vector2(6, -6), hit, 2.2)
 		crosshair.draw_line(Vector2(-13, 13), Vector2(-6, 6), hit, 2.2)
 		crosshair.draw_line(Vector2(13, 13), Vector2(6, 6), hit, 2.2)
+
+
+func _draw_minimap() -> void:
+	var center := minimap.size * 0.5
+	var radius := 86.0
+	minimap.draw_circle(center, radius + 7.0, Color(0.0, 0.0, 0.0, 0.35))
+	minimap.draw_circle(center, radius, Color(0.018, 0.032, 0.034, 0.72))
+	minimap.draw_arc(center, radius, 0.0, TAU, 96, Color(0.38, 0.70, 0.66, 0.78), 2.0)
+	minimap.draw_line(center + Vector2(-radius, 0), center + Vector2(radius, 0), Color(0.30, 0.46, 0.44, 0.22), 1.0)
+	minimap.draw_line(center + Vector2(0, -radius), center + Vector2(0, radius), Color(0.30, 0.46, 0.44, 0.22), 1.0)
+	for angle_index in range(8):
+		var angle := float(angle_index) / 8.0 * TAU
+		var start := center + Vector2(cos(angle), sin(angle)) * (radius - 12.0)
+		var end := center + Vector2(cos(angle), sin(angle)) * radius
+		minimap.draw_line(start, end, Color(0.62, 0.82, 0.76, 0.28), 1.0)
+
+	for bot_position in minimap_bot_positions:
+		var delta := bot_position - minimap_player_position
+		var blip := Vector2(delta.x, delta.z) * 2.25
+		if blip.length() > radius - 10.0:
+			blip = blip.normalized() * (radius - 10.0)
+		minimap.draw_circle(center + blip, 5.0, Color(0.98, 0.15, 0.10, 0.96))
+
+	var forward := Vector2(-sin(minimap_player_yaw), -cos(minimap_player_yaw))
+	var right := Vector2(forward.y, -forward.x)
+	var p0 := center + forward * 12.0
+	var p1 := center - forward * 8.0 + right * 7.0
+	var p2 := center - forward * 8.0 - right * 7.0
+	minimap.draw_colored_polygon(PackedVector2Array([p0, p1, p2]), Color(0.18, 0.90, 1.0, 0.96))
 
 
 func _panel(position: Vector2, size: Vector2, color: Color) -> ColorRect:
