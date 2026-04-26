@@ -17,6 +17,9 @@ The browser prototype has been removed. Development now happens here.
 1. Install Godot 4.6.x.
 2. Open this `desktop_godot` folder in Godot.
 3. Press Play.
+4. Use the start menu to choose bot count, difficulty, match time, and kill limit.
+5. Click `PLAY` to deploy.
+6. After a match ends, review the finished-match result screen and use `PLAY AGAIN` to return to setup.
 
 ## Controls
 
@@ -30,6 +33,13 @@ The browser prototype has been removed. Development now happens here.
 - `1 / 2 / 3`: Switch weapon
 - `Esc`: Release cursor
 - `Enter`: Restart match
+
+## Match Rules
+
+- The match timer starts only after clicking `PLAY`.
+- When time expires or the kill limit is reached, the game checks eliminations vs deaths.
+- More eliminations than deaths is a win; otherwise it is a loss.
+- Results show only the just-finished match details, then `PLAY AGAIN` returns to the configurable start menu.
 
 ## Production Asset Pipeline
 

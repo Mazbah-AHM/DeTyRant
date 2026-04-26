@@ -97,6 +97,12 @@ func _input(event: InputEvent) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if game and (not game.match_started or not game.game_active):
+		movement_input = Vector2.ZERO
+		velocity = velocity.move_toward(Vector3.ZERO, FRICTION * delta)
+		move_and_slide()
+		return
+
 	if not alive:
 		velocity = velocity.move_toward(Vector3.ZERO, FRICTION * delta)
 		move_and_slide()

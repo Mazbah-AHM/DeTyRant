@@ -8,9 +8,16 @@ const AudioDirectorScript := preload("res://scripts/audio_director.gd")
 const WORLD_LAYER := 1
 const ACTOR_LAYER := 2
 const HITBOX_LAYER := 4
-const MATCH_SECONDS := 8.0 * 60.0
-const KILL_LIMIT := 30
-const BOT_COUNT := 1
+const DEFAULT_MATCH_SECONDS := 5.0 * 60.0
+const DEFAULT_KILL_LIMIT := 30
+const DEFAULT_BOT_COUNT := 1
+
+const DIFFICULTY_PROFILES := {
+	"Easy": {"speed": 0.82, "damage": 0.68, "accuracy": -0.22, "fire_delay": 1.45},
+	"Normal": {"speed": 1.0, "damage": 1.0, "accuracy": 0.0, "fire_delay": 1.0},
+	"Hard": {"speed": 1.12, "damage": 1.18, "accuracy": 0.12, "fire_delay": 0.82},
+	"Nightmare": {"speed": 1.24, "damage": 1.36, "accuracy": 0.22, "fire_delay": 0.66},
+}
 
 var rng := RandomNumberGenerator.new()
 var materials := {}
@@ -21,8 +28,14 @@ var arena_root: Node3D
 var dynamic_root: Node3D
 var fx_root: Node3D
 var bots: Array = []
-var match_time := MATCH_SECONDS
-var game_active := true
+var match_time := DEFAULT_MATCH_SECONDS
+var game_active := false
+var match_started := false
+var selected_bot_count := DEFAULT_BOT_COUNT
+var selected_difficulty := "Normal"
+var selected_kill_limit := DEFAULT_KILL_LIMIT
+var selected_match_seconds := DEFAULT_MATCH_SECONDS
+var match_result_text := ""
 var feed: Array[String] = []
 
 var spawn_points := [
@@ -68,28 +81,28 @@ func _ready() -> void:
 	_build_environment()
 	_build_arena()
 	_spawn_player()
-	_spawn_bots()
 	_spawn_hud()
 	_spawn_audio()
-	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	_add_feed("Astra Combat Wing online.")
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_add_feed("Configure match and press Play.")
 
 
 func _process(delta: float) -> void:
 	if Input.is_action_just_pressed("ui_cancel"):
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	if Input.is_action_just_pressed("fire") and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+	if match_started and Input.is_action_just_pressed("fire") and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	if Input.is_action_just_pressed("restart_match"):
-		reset_match()
+		if match_started:
+			reset_match()
 
 	if game_active:
 		match_time = maxf(0.0, match_time - delta)
 		if match_time == 0.0:
-			_end_match("Time expired.")
+			_end_match("Time expired.", true)
 
 	if hud:
-		hud.update_match(player, bots, match_time, game_active, feed)
+		hud.update_match(player, bots, match_time, game_active, feed, match_started, match_result_text)
 
 
 func _physics_process(delta: float) -> void:
@@ -100,16 +113,47 @@ func _physics_process(delta: float) -> void:
 		bot.tick_bot(delta, player)
 
 
-func reset_match() -> void:
-	match_time = MATCH_SECONDS
+func start_match(settings: Dictionary) -> void:
+	selected_bot_count = clampi(int(settings.get("bot_count", DEFAULT_BOT_COUNT)), 1, 12)
+	selected_difficulty = String(settings.get("difficulty", "Normal"))
+	if not DIFFICULTY_PROFILES.has(selected_difficulty):
+		selected_difficulty = "Normal"
+	selected_kill_limit = clampi(int(settings.get("kill_limit", DEFAULT_KILL_LIMIT)), 1, 100)
+	selected_match_seconds = float(clampi(int(settings.get("minutes", 5)), 1, 30)) * 60.0
+	match_time = selected_match_seconds
+	match_started = true
 	game_active = true
+	match_result_text = ""
+	_clear_bots()
 	feed.clear()
 	player.kills = 0
 	player.deaths = 0
 	player.reset_for_match(_choose_spawn(null))
+	_spawn_bots(selected_bot_count, selected_difficulty)
+	_add_feed("Match started: %d bots, %s, %d min." % [selected_bot_count, selected_difficulty, int(match_time / 60.0)])
+	if hud:
+		hud.hide_start_menu()
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+func reset_match() -> void:
+	match_time = selected_match_seconds
+	game_active = true
+	match_started = true
+	match_result_text = ""
+	feed.clear()
+	player.kills = 0
+	player.deaths = 0
+	player.reset_for_match(_choose_spawn(null))
+	if bots.size() != selected_bot_count:
+		_clear_bots()
+		_spawn_bots(selected_bot_count, selected_difficulty)
 	for index in range(bots.size()):
 		bots[index].respawn(_choose_spawn(bots[index]))
 	_add_feed("Match reset.")
+	if hud:
+		hud.hide_start_menu()
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
 func register_player_shot(origin: Vector3, direction: Vector3, weapon: Dictionary) -> void:
@@ -148,8 +192,8 @@ func register_player_shot(origin: Vector3, direction: Vector3, weapon: Dictionar
 			_add_feed("DeTyrant eliminated %s%s." % [bot.callsign, " [critical]" if zone == "head" else ""])
 			if audio:
 				audio.play_2d("kill", -7.0)
-			if player.kills >= KILL_LIMIT:
-				_end_match("DeTyrant hit the kill limit.")
+			if player.kills >= selected_kill_limit:
+				_end_match("Kill limit reached.", true)
 
 
 func register_bot_shot(bot, origin: Vector3, direction: Vector3, damage: float) -> void:
@@ -204,14 +248,18 @@ func _spawn_player() -> void:
 	player.reset_for_match(_choose_spawn(null))
 
 
-func _spawn_bots() -> void:
-	for index in range(BOT_COUNT):
+func _spawn_bots(count: int, difficulty: String) -> void:
+	var profile: Dictionary = DIFFICULTY_PROFILES.get(difficulty, DIFFICULTY_PROFILES["Normal"])
+	for index in range(count):
 		var bot = BotScript.new()
 		bot.name = "Bot%d" % index
 		bot.game = self
-		bot.callsign = ["Aegis-7", "Nova Trace", "Cipher Echo", "Helix-9", "Zero Drift", "Quartz Shade"][index]
+		var callsigns := ["Aegis-7", "Nova Trace", "Cipher Echo", "Helix-9", "Zero Drift", "Quartz Shade"]
+		bot.callsign = callsigns[index % callsigns.size()]
 		bot.nav_points = nav_points
 		bot.materials = materials
+		if bot.has_method("configure_difficulty"):
+			bot.configure_difficulty(profile)
 		bot.collision_layer = ACTOR_LAYER
 		bot.collision_mask = WORLD_LAYER | ACTOR_LAYER
 		dynamic_root.add_child(bot)
@@ -219,9 +267,17 @@ func _spawn_bots() -> void:
 		bots.append(bot)
 
 
+func _clear_bots() -> void:
+	for bot in bots:
+		if is_instance_valid(bot):
+			bot.queue_free()
+	bots.clear()
+
+
 func _spawn_hud() -> void:
 	hud = HudScript.new()
 	add_child(hud)
+	hud.start_requested.connect(start_match)
 
 
 func _spawn_audio() -> void:
@@ -884,13 +940,46 @@ func _add_feed(text: String) -> void:
 		feed.resize(5)
 
 
-func _end_match(reason: String) -> void:
+func _end_match(reason: String, evaluate_result := false) -> void:
 	if not game_active:
 		return
 	game_active = false
+	match_started = false
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	if evaluate_result:
+		match_result_text = _match_result(reason)
+	else:
+		match_result_text = reason
 	_add_feed(reason)
 	if audio:
 		audio.play_2d("match_end", -6.0)
+	if hud:
+		hud.show_result_screen(match_result_text)
+
+
+func _match_result(reason: String) -> String:
+	var kills: int = player.kills if player else 0
+	var deaths: int = player.deaths if player else 0
+	var ratio := float(kills) if deaths == 0 else float(kills) / float(deaths)
+	var outcome := "WIN" if kills > deaths else "LOSE"
+	var elapsed := maxf(0.0, selected_match_seconds - match_time)
+	return "%s\n%s\nElims %d / Deaths %d / K-D %.2f\nDifficulty %s / Bots %d\nTime Played %s / Limit %s / Kill Limit %d" % [
+		outcome,
+		reason,
+		kills,
+		deaths,
+		ratio,
+		selected_difficulty,
+		selected_bot_count,
+		_format_time(elapsed),
+		_format_time(selected_match_seconds),
+		selected_kill_limit,
+	]
+
+
+func _format_time(seconds: float) -> String:
+	var total_seconds := int(ceil(seconds))
+	return "%02d:%02d" % [floori(total_seconds / 60.0), total_seconds % 60]
 
 
 func _install_input_map() -> void:

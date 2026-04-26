@@ -40,6 +40,10 @@ var visor_mesh: MeshInstance3D   # tactical goggles — still flash on hit
 var hit_areas: Array[Area3D] = []
 var collision_shape: CollisionShape3D
 var _bob_offset := 0.0            # per-instance idle breath offset
+var speed_multiplier := 1.0
+var damage_multiplier := 1.0
+var accuracy_bonus := 0.0
+var fire_delay_multiplier := 1.0
 
 
 func _ready() -> void:
@@ -50,6 +54,13 @@ func _ready() -> void:
 	_add_hitbox("head",  Vector3(0, 1.84, 0), Vector3(0.52, 0.44, 0.52), 1.55)
 	if nav_points.size() > 0:
 		target_point = nav_points.pick_random()
+
+
+func configure_difficulty(profile: Dictionary) -> void:
+	speed_multiplier = float(profile.get("speed", 1.0))
+	damage_multiplier = float(profile.get("damage", 1.0))
+	accuracy_bonus = float(profile.get("accuracy", 0.0))
+	fire_delay_multiplier = float(profile.get("fire_delay", 1.0))
 
 
 func tick_bot(delta: float, player) -> void:
@@ -139,20 +150,20 @@ func _apply_movement(move: Vector3, delta: float) -> void:
 		velocity.y -= GRAVITY * delta
 	else:
 		velocity.y = -0.1
-	var desired := move.normalized() * SPEED
+	var desired := move.normalized() * SPEED * speed_multiplier
 	velocity.x = move_toward(velocity.x, desired.x, ACCEL * delta)
 	velocity.z = move_toward(velocity.z, desired.z, ACCEL * delta)
 	move_and_slide()
 
 
 func _fire_at_player(player, distance: float) -> void:
-	shoot_timer = randf_range(0.18, 0.34)
+	shoot_timer = randf_range(0.18, 0.34) * fire_delay_multiplier
 	_set_animation_state("shoot", true)
-	var accuracy := clampf(0.86 - distance * 0.012 - Vector2(player.velocity.x, player.velocity.z).length() * 0.018, 0.26, 0.88)
+	var accuracy := clampf(0.86 + accuracy_bonus - distance * 0.012 - Vector2(player.velocity.x, player.velocity.z).length() * 0.018, 0.18, 0.96)
 	var target: Vector3 = player.eye_position()
 	target += Vector3(randf_range(-1.2, 1.2), randf_range(-0.7, 0.55), randf_range(-1.2, 1.2)) * (1.0 - accuracy)
 	var direction: Vector3 = (target - (global_position + Vector3.UP * 1.45)).normalized()
-	game.register_bot_shot(self, global_position + Vector3.UP * 1.45, direction, randf_range(9.0, 16.0))
+	game.register_bot_shot(self, global_position + Vector3.UP * 1.45, direction, randf_range(9.0, 16.0) * damage_multiplier)
 
 
 func _has_line_of_sight(player) -> bool:
